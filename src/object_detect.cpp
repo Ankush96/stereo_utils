@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 
 
     cv::namedWindow(WINDOW, CV_WINDOW_AUTOSIZE);
-    image_transport::Subscriber sub = it.subscribe("/image_raw", 1, colorDetectionCallback);
+    image_transport::Subscriber sub = it.subscribe("/stereo/left/image_rect_color", 1, colorDetectionCallback);
     cv::destroyWindow(WINDOW);
 
     pub = it.advertise("/image_processed", 1);

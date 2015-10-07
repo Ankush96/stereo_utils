@@ -10,7 +10,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   message_generation
   sensor_msgs
+  stereo_msgs
   std_msgs
+  OpenCV
 )
 
 ## System dependencies are found with CMake's conventions
@@ -72,6 +74,7 @@ find_package(catkin REQUIRED COMPONENTS
    DEPENDENCIES
    std_msgs
    sensor_msgs
+   stereo_msgs
  )
 
 ################################################
@@ -119,6 +122,7 @@ catkin_package(
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -193,6 +197,12 @@ include_directories(
 
 
 add_executable(object_detect src/object_detect.cpp)
-target_link_libraries(object_detect ${catkin_LIBRARIES})
+target_link_libraries(object_detect ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(object_detect stereo_utils_generate_messages_cpp)
+
+
+add_executable(Get_Depth src/Get_Depth.cpp)
+target_link_libraries(Get_Depth ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+add_dependencies(Get_Depth stereo_utils_generate_messages_cpp)
+
 
