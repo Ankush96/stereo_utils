@@ -22,6 +22,7 @@ class getDepth
   cv::Mat_<uint8_t> disp;
 
   sensor_msgs::CameraInfo left, right;
+  StereoCameraModel stereo_model;
 
   int LowerH;
   int LowerS;
@@ -50,6 +51,7 @@ public:
     erosion_kernel = 3;
     cv::namedWindow("left");
     cv::namedWindow("disparity");
+    cv::namedWindow("Projected Z");
     cv::namedWindow("mask");
     cv::createTrackbar("LowerH","left",&LowerH,180,NULL);
     cv::createTrackbar("UpperH","left",&UpperH,180,NULL);
@@ -67,6 +69,7 @@ public:
     cv::destroyWindow("left");
     cv::destroyWindow("disparity");
     cv::destroyWindow("mask");
+    cv::destroyWindow("Projected Z");
     //cv::destroyWindow("masked_disparity")
   }
 
@@ -187,14 +190,35 @@ void getDepth::disparity_callback(const stereo_msgs::DisparityImagePtr& msg)
   {
     cv::Mat_<float> dMat(msg->image.height, msg->image.width, reinterpret_cast<float*>(&(msg->image.data[0])));
     this->disp = (dMat) * (255/msg->max_disparity);
+    cv::Mat_<uint8_t> reprojected_z;
+
+    cv::Mat Z(dMat.rows, dMat.cols, CV_32FC1, cv::Scalar(10000.0));
 
     cv::Mat img_mask1 = IsolateColor(this->left_img);
     cv::Mat img_mask2 = reduceNoise(img_mask1);
 
     //std::cout<<" left "<<this->left<<std::endl;
     //std::cout<<" right "<<this->right<<std::endl;
+    stereo_model.fromCameraInfo(this->left, this->right);
+
+    // Mask the isolated object on the disparity map and reproject respective points
+    for(int i = 0; i < img_mask2.rows; i++)
+    {
+      for(int j = 0; j < img_mask2.cols; j++)
+      {
+        if(img_mask2.at<uchar>(i,j) == 255) // We are interested in disparity values of only object pixels
+        {
+          cv::Point3d xyz;
+          stereo_model.projectDisparityTo3d(cv::Point2d(i,j), dMat.at<float>(i,j), xyz);
+          Z.at<float>(i,j) = xyz.z;
+        }
+      }
+    }
+    reprojected_z = (Z) * (255/10000.0);
+
 
     cv::imshow("disparity",disp);
+    cv::imshow("Projected Z", reprojected_z);
     cv::imshow("mask",img_mask2);
     cv::waitKey(30);
   }  

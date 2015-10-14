@@ -7,6 +7,7 @@ project(stereo_utils)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
+  image_geometry
   roscpp
   message_generation
   sensor_msgs
