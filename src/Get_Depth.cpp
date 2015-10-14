@@ -6,15 +6,22 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/core/core.hpp>
 #include <stereo_msgs/DisparityImage.h>
+#include "image_geometry/stereo_camera_model.h"
+
+using namespace image_geometry;
+
+int cam_info_taken = 0;
 
 class getDepth
 {
   ros::NodeHandle nh_;
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_l;
-  ros::Subscriber image_sub_d;
+  ros::Subscriber image_sub_d, l_info, r_info;
   cv::Mat left_img;
   cv::Mat_<uint8_t> disp;
+
+  sensor_msgs::CameraInfo left, right;
 
   int LowerH;
   int LowerS;
@@ -28,9 +35,11 @@ public:
   getDepth()
     : it_(nh_)
   {
+
+    l_info = nh_.subscribe("/stereo/left/camera_info", 1 ,&getDepth::update_l_info, this);
+    r_info = nh_.subscribe("/stereo/right/camera_info", 1 ,&getDepth::update_r_info, this);
     image_sub_l = it_.subscribe("/stereo/left/image_rect_color", 1, &getDepth::left_callback, this);
     image_sub_d = nh_.subscribe("/stereo/disparity", 1 ,&getDepth::disparity_callback, this);
-
 
     LowerH = 0;
     LowerS = 0;
@@ -65,8 +74,23 @@ public:
   void disparity_callback(const stereo_msgs::DisparityImagePtr&);
   cv::Mat IsolateColor(const cv::Mat& src);
   cv::Mat reduceNoise(const cv::Mat& src);
+  void update_l_info(const sensor_msgs::CameraInfo &msg);
+  void update_r_info(const sensor_msgs::CameraInfo &msg);
 };
 
+void getDepth::update_l_info(const sensor_msgs::CameraInfo &msg)
+{
+  if(cam_info_taken) return;
+  this->left = msg;
+  cam_info_taken = 1;
+}
+
+void getDepth::update_r_info(const sensor_msgs::CameraInfo &msg)
+{
+  if(cam_info_taken) return;
+  this->right = msg;
+  cam_info_taken =1;
+}
 
 cv::Mat getDepth::IsolateColor(const cv::Mat& src)
 {
@@ -166,6 +190,9 @@ void getDepth::disparity_callback(const stereo_msgs::DisparityImagePtr& msg)
 
     cv::Mat img_mask1 = IsolateColor(this->left_img);
     cv::Mat img_mask2 = reduceNoise(img_mask1);
+
+    //std::cout<<" left "<<this->left<<std::endl;
+    //std::cout<<" right "<<this->right<<std::endl;
 
     cv::imshow("disparity",disp);
     cv::imshow("mask",img_mask2);
