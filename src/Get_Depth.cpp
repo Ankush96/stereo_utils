@@ -7,10 +7,13 @@
 #include <opencv2/core/core.hpp>
 #include <stereo_msgs/DisparityImage.h>
 #include "image_geometry/stereo_camera_model.h"
+#include "image_geometry/pinhole_camera_model.h"
+
 
 using namespace image_geometry;
 
-int cam_info_taken = 0;
+int l_cam_info_taken = 0;
+int r_cam_info_taken = 0;
 
 class getDepth
 {
@@ -83,16 +86,16 @@ public:
 
 void getDepth::update_l_info(const sensor_msgs::CameraInfo &msg)
 {
-  if(cam_info_taken) return;
+  if(l_cam_info_taken) return;
   this->left = msg;
-  cam_info_taken = 1;
+  l_cam_info_taken = 1;
 }
 
 void getDepth::update_r_info(const sensor_msgs::CameraInfo &msg)
 {
-  if(cam_info_taken) return;
+  if(r_cam_info_taken) return;
   this->right = msg;
-  cam_info_taken =1;
+  r_cam_info_taken =1;
 }
 
 cv::Mat getDepth::IsolateColor(const cv::Mat& src)
@@ -191,15 +194,22 @@ void getDepth::disparity_callback(const stereo_msgs::DisparityImagePtr& msg)
     cv::Mat_<float> dMat(msg->image.height, msg->image.width, reinterpret_cast<float*>(&(msg->image.data[0])));
     this->disp = (dMat) * (255/msg->max_disparity);
     cv::Mat_<uint8_t> reprojected_z;
-
-    cv::Mat Z(dMat.rows, dMat.cols, CV_32FC1, cv::Scalar(10000.0));
+    float f_max = 10000.0;
+    cv::Mat Z(dMat.rows, dMat.cols, CV_32FC1, cv::Scalar(f_max));
 
     cv::Mat img_mask1 = IsolateColor(this->left_img);
     cv::Mat img_mask2 = reduceNoise(img_mask1);
-
+    cv::Matx44d _q = stereo_model.reprojectionMatrix();
+    
     //std::cout<<" left "<<this->left<<std::endl;
     //std::cout<<" right "<<this->right<<std::endl;
     stereo_model.fromCameraInfo(this->left, this->right);
+    //std::cout<<" Fy :"<<stereo_model.left_.fy()<<std::endl;
+    //PinholeCameraModel r = stereo_model.right();
+    // std::cout<<" right.tx : "<<r.Tx()<<" right.fx : "<<r.fx()<<std::endl;
+    // std::cout<<"q: "<<_q<<std::endl;
+
+    // std::cout<<" baseline :"<<stereo_model.baseline()<<std::endl;
 
     // Mask the isolated object on the disparity map and reproject respective points
     for(int i = 0; i < img_mask2.rows; i++)
@@ -210,11 +220,12 @@ void getDepth::disparity_callback(const stereo_msgs::DisparityImagePtr& msg)
         {
           cv::Point3d xyz;
           stereo_model.projectDisparityTo3d(cv::Point2d(i,j), dMat.at<float>(i,j), xyz);
+          //std::cout<<xyz.x<<":"<<xyz.y<<":"<<xyz.z<<std::endl;
           Z.at<float>(i,j) = xyz.z;
         }
       }
     }
-    reprojected_z = (Z) * (255/10000.0);
+    reprojected_z = (255) * (1-(Z/f_max)); // Will be complement of mask
 
 
     cv::imshow("disparity",disp);
