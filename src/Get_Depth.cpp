@@ -220,7 +220,7 @@ void getDepth::disparity_callback(const stereo_msgs::DisparityImagePtr& msg)
         {
           cv::Point3d xyz;
           stereo_model.projectDisparityTo3d(cv::Point2d(i,j), dMat.at<float>(i,j), xyz);
-          //std::cout<<xyz.x<<":"<<xyz.y<<":"<<xyz.z<<std::endl;
+          std::cout<<xyz.x<<":"<<xyz.y<<":"<<xyz.z<<std::endl;
           Z.at<float>(i,j) = xyz.z;
         }
       }
